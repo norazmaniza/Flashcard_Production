@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic CSV Flashcards</title>
+    <style>
+        :root {
+            --primary-color: #0ea5e9;
+            --primary-hover: #0284c7;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 580px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0f172a;
+            text-align: center;
+        }
+
+        .flashcard-wrapper {
+            width: 100%;
+            height: 340px;
+            perspective: 1000px;
+            cursor: pointer;
+        }
+
+        .flashcard {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow);
+            border-radius: 16px;
+        }
+
+        .flashcard.flipped { transform: rotateY(180deg); }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 16px;
+            background-color: var(--card-bg);
+            padding: 36px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+
+        .card-label {
+            position: absolute;
+            top: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            background-color: #f1f5f9;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+
+        .card-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            line-height: 1.5;
+            word-wrap: break-word;
+            max-width: 100%;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            background-color: #fafafa;
+            border-left: 6px solid var(--primary-color);
+        }
+
+        .card-back .card-text {
+            font-weight: 400;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            text-align: left;
+        }
+
+        .hint-text {
+            position: absolute;
+            bottom: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .controls-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background-color: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .nav-controls {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid #cbd5e1;
+            padding: 10px 20px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            user-select: none;
+        }
+
+        .btn:hover:not(:disabled) { background-color: #f1f5f9; border-color: #94a3b8; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background-color: var(--primary-color); color: white; border: none; }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
+        .progress-text { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
+
+        #errorMessage {
+            color: #ef4444;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1 id="siteTitle">Health Economics Study Tool</h1>
+        </header>
+
+        <div id="errorMessage">Failed to load flashcards. Please verify your CSV URL.</div>
+
+        <div class="flashcard-wrapper" id="cardWrapper" onclick="flipCard()">
+            <div class="flashcard" id="flashcard">
+                <div class="card-face card-front">
+                    <span class="card-label">Question</span>
+                    <p class="card-text" id="questionText">Loading cards from GitHub...</p>
+                    <span class="hint-text">Click to reveal answer</span>
+                </div>
+                <div class="card-face card-back">
+                    <span class="card-label">Answer</span>
+                    <p class="card-text" id="answerText">Loading...</p>
+                    <span class="hint-text">Click to see question</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-container">
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="nav-controls">
+                <button class="btn" id="prevBtn" onclick="prevCard()" disabled>&larr; Previous</button>
+                <span class="progress-text" id="progressText">0 of 0</span>
+                <button class="btn btn-primary" id="nextBtn" onclick="nextCard()" disabled>Next &rarr;</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. PLACE YOUR RAW GITHUB CSV URL HERE:
+        const CSV_URL = 'https://raw.githubusercontent.com/your-username/your-repo/main/flshcard.csv';
+
+        let flashcards = [];
+        let currentIndex = 0;
+
+        const flashcardEl = document.getElementById('flashcard');
+        const questionTextEl = document.getElementById('questionText');
+        const answerTextEl = document.getElementById('answerText');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const progressTextEl = document.getElementById('progressText');
+        const progressBarEl = document.getElementById('progressBar');
+        const errorEl = document.getElementById('errorMessage');
+
+        // Robust CSV line parser that respects commas wrapped inside quotes
+        function parseCSVLine(text) {
+            let p = false, row = [''], i = 0;
+            for (let ch of text) {
+                if (ch === '"') {
+                    p = !p; 
+                } else if (ch === ',' && !p) {
+                    row[++i] = '';
+                } else {
+                    row[i] += ch;
+                }
+            }
+            return row.map(cell => cell.trim());
+        }
+
+        function parseCSV(text) {
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+            const data = [];
+            
+            // Skip header index 0 ("Question,Answer"), evaluate actual items
+            for (let i = 1; i < lines.length; i++) {
+                const parsedRow = parseCSVLine(lines[i]);
+                if (parsedRow.length >= 2) {
+                    let question = parsedRow[0];
+                    let answer = parsedRow[1];
+                    
+                    // Cleanup any unhandled internal escaped double quotes ""
+                    question = question.replace(/""/g, '"');
+                    answer = answer.replace(/""/g, '"');
+                    
+                    data.push({ question, answer });
+                }
+            }
+            return data;
+        }
+
+        async function loadFlashcards() {
+            try {
+                const response = await fetch(CSV_URL);
+                if (!response.ok) throw new Error("Network status error");
+                const text = await response.text();
+                
+                flashcards = parseCSV(text);
+                
+                if (flashcards.length > 0) {
+                    nextBtn.disabled = false;
+                    renderContent();
+                } else {
+                    throw new Error("No parsed data found");
+                }
+            } catch (err) {
+                console.error(err);
+                errorEl.style.display = 'block';
+                questionTextEl.textContent = "Error loading data.";
+            }
+        }
+
+        function updateCard() {
+            if (flashcardEl.classList.contains('flipped')) {
+                flashcardEl.classList.remove('flipped');
+                setTimeout(renderContent, 200);
+            } else {
+                renderContent();
+            }
+        }
+
+        function renderContent() {
+            if (flashcards.length === 0) return;
+            
+            const currentCard = flashcards[currentIndex];
+            questionTextEl.textContent = currentCard.question;
+            answerTextEl.textContent = currentCard.answer;
+            
+            progressTextEl.textContent = `Card ${currentIndex + 1} of ${flashcards.length}`;
+            progressBarEl.style.width = `${((currentIndex + 1) / flashcards.length) * 100}%`;
+            
+            prevBtn.disabled = currentIndex === 0;
+            nextBtn.textContent = currentIndex === flashcards.length - 1 ? "Restart ↺" : "Next →";
+        }
+
+        function flipCard() { flashcardEl.classList.toggle('flipped'); }
+
+        function nextCard() {
+            if (currentIndex < flashcards.length - 1) currentIndex++;
+            else currentIndex = 0;
+            updateCard();
+        }
+
+        function prevCard() {
+            if (currentIndex > 0) { currentIndex--; updateCard(); }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+            else if (e.code === 'ArrowRight') nextCard();
+            else if (e.code === 'ArrowLeft') prevCard();
+        });
+
+        loadFlashcards();
+    </script>
+</body>
+</html>
