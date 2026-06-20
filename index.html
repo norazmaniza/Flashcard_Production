@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic CSV Flashcards</title>
+    <title>RAND Experiment Flashcards</title>
     <style>
         :root {
             --primary-color: #0ea5e9;
@@ -94,7 +94,7 @@
         }
 
         .card-text {
-            font-size: 1.2rem;
+            font-size: 1.25rem;
             font-weight: 600;
             line-height: 1.5;
             word-wrap: break-word;
@@ -171,12 +171,28 @@
         .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
         .progress-text { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); }
 
-        #errorMessage {
-            color: #ef4444;
-            font-weight: bold;
+        .shortcuts {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
             text-align: center;
-            display: none;
-            margin-bottom: 10px;
+        }
+
+        .key {
+            background: #e2e8f0;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        @media (max-width: 480px) {
+            header h1 { font-size: 1.4rem; }
+            .flashcard-wrapper { height: 360px; }
+            .card-text { font-size: 1.15rem; }
+            .card-back .card-text { font-size: 1.05rem; }
+            .btn { padding: 8px 16px; font-size: 0.85rem; }
+            .shortcuts { display: none; }
         }
     </style>
 </head>
@@ -184,16 +200,14 @@
 
     <div class="container">
         <header>
-            <h1 id="siteTitle">RAND Experiment Study Tool</h1>
+            <h1>RAND Experiment Study Tool</h1>
         </header>
-
-        <div id="errorMessage">Failed to load flashcards.</div>
 
         <div class="flashcard-wrapper" id="cardWrapper" onclick="flipCard()">
             <div class="flashcard" id="flashcard">
                 <div class="card-face card-front">
                     <span class="card-label">Question</span>
-                    <p class="card-text" id="questionText">Loading cards from data.csv...</p>
+                    <p class="card-text" id="questionText">Loading...</p>
                     <span class="hint-text">Click to reveal answer</span>
                 </div>
                 <div class="card-face card-back">
@@ -211,16 +225,52 @@
             <div class="nav-controls">
                 <button class="btn" id="prevBtn" onclick="prevCard()" disabled>&larr; Previous</button>
                 <span class="progress-text" id="progressText">0 of 0</span>
-                <button class="btn btn-primary" id="nextBtn" onclick="nextCard()" disabled>Next &rarr;</button>
+                <button class="btn btn-primary" id="nextBtn" onclick="nextCard()">Next &rarr;</button>
             </div>
+        </div>
+
+        <div class="shortcuts">
+            Tip: Press <span class="key">Space</span> to flip, <span class="key">&larr;</span> for previous, <span class="key">&rarr;</span> for next.
         </div>
     </div>
 
     <script>
-        // Set file path to read your new file format directly
-        const CSV_URL = 'data.csv';
+        // Data directly integrated safely to prevent any loading issues
+        const flashcards = [
+            {
+                "question": "What does an income elasticity of > 1 (e.g., 1.6) indicate about medical care?",
+                "answer": "It indicates that medical care is a superior or luxury good at the aggregate level, meaning as people get richer, they spend a disproportionately higher percentage of their wealth on health [1]."
+            },
+            {
+                "question": "What is the overall price elasticity of medical care, and what does it mean?",
+                "answer": "The overall price elasticity is roughly -0.2 (inelastic), meaning a 10% increase in out-of-pocket costs only reduces demand by 2% [1]."
+            },
+            {
+                "question": "What were the main questions the RAND Health Insurance Experiment sought to answer?",
+                "answer": "The experiment asked whether higher cost-sharing reduces medical spending, and more importantly, whether it ruins health [1]."
+            },
+            {
+                "question": "According to the RAND Experiment, which type of medical service is the most inelastic (urgently needed regardless of price)?",
+                "answer": "Inpatient hospital services are highly inelastic, with a price elasticity of -0.1 [1]."
+            },
+            {
+                "question": "According to the RAND Experiment, which type of medical service is highly elastic?",
+                "answer": "Dental services are highly elastic (-0.4), meaning patients are highly likely to defer dental care if out-of-pocket costs rise [1]."
+            },
+            {
+                "question": "Why is cost-sharing considered a 'blunt instrument' according to the RAND Experiment?",
+                "answer": "Because patients lack the medical expertise to separate necessary from unnecessary care, higher cost-sharing reduced both appropriate and inappropriate care in roughly equal proportions [1]."
+            },
+            {
+                "question": "How did high cost-sharing affect the health outcomes of the average, relatively healthy person in the RAND Experiment?",
+                "answer": "There was no significant difference in health outcomes; for the average person, cost-sharing was purely a financial issue, not a health issue [1]."
+            },
+            {
+                "question": "How did cost-sharing affect vulnerable (poorest and sickest) populations in the RAND Experiment?",
+                "answer": "It acted as a dangerous barrier to essential care, leading to worse health outcomes, whereas free care led to significant improvements like better-controlled hypertension and better dental health [1]."
+            }
+        ];
 
-        let flashcards = [];
         let currentIndex = 0;
 
         const flashcardEl = document.getElementById('flashcard');
@@ -230,64 +280,6 @@
         const nextBtn = document.getElementById('nextBtn');
         const progressTextEl = document.getElementById('progressText');
         const progressBarEl = document.getElementById('progressBar');
-        const errorEl = document.getElementById('errorMessage');
-
-        // Custom parser to split cleanly around standard comma wrapping and triple quotes (""")
-        function parseTripleQuoteCSV(text) {
-            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-            const data = [];
-
-            // Skip header ("Question,Answer")
-            for (let i = 1; i < lines.length; i++) {
-                let row = lines[i];
-                
-                // Find the main dividing point between Question block and Answer block
-                // Expected format: """Question Text""","""Answer Text"""
-                const targetDivider = '""","""';
-                const dividerIdx = row.indexOf(targetDivider);
-
-                if (dividerIdx !== -1) {
-                    let question = row.substring(0, dividerIdx).replace(/^"""/, '').trim();
-                    let answer = row.substring(dividerIdx + targetDivider.length).replace(/"""$/, '').trim();
-
-                    if (question && answer) {
-                        data.push({ question, answer });
-                    }
-                } else {
-                    // Fallback simpler line parsing if line lacks triple quotes
-                    const simpleDivider = '","';
-                    const sIdx = row.indexOf(simpleDivider);
-                    if (sIdx !== -1) {
-                        let question = row.substring(0, sIdx).replace(/^"/, '').trim();
-                        let answer = row.substring(sIdx + simpleDivider.length).replace(/"$/, '').trim();
-                        data.push({ question, answer });
-                    }
-                }
-            }
-            return data;
-        }
-
-        async function loadFlashcards() {
-            try {
-                const response = await fetch(CSV_URL);
-                if (!response.ok) throw new Error(`Could not read '${CSV_URL}'.`);
-                const text = await response.text();
-                
-                flashcards = parseTripleQuoteCSV(text);
-                
-                if (flashcards.length > 0) {
-                    nextBtn.disabled = false;
-                    renderContent();
-                } else {
-                    throw new Error("Data parsing returned empty. Check file integrity.");
-                }
-            } catch (err) {
-                console.error(err);
-                errorEl.textContent = "Error: " + err.message;
-                errorEl.style.display = 'block';
-                questionTextEl.textContent = `Ensure both 'index.html' and '${CSV_URL}' are committed in the same folder repository.`;
-            }
-        }
 
         function updateCard() {
             if (flashcardEl.classList.contains('flipped')) {
@@ -321,4 +313,17 @@
         }
 
         function prevCard() {
-            if (currentIndex > 0) { currentIndex--; update
+            if (currentIndex > 0) { currentIndex--; updateCard(); }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+            else if (e.code === 'ArrowRight') nextCard();
+            else if (e.code === 'ArrowLeft') prevCard();
+        });
+
+        // Bootstrap on startup
+        renderContent();
+    </script>
+</body>
+</html>
