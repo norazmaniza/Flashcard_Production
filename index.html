@@ -94,7 +94,7 @@
         }
 
         .card-text {
-            font-size: 1.25rem;
+            font-size: 1.2rem;
             font-weight: 600;
             line-height: 1.5;
             word-wrap: break-word;
@@ -184,16 +184,16 @@
 
     <div class="container">
         <header>
-            <h1 id="siteTitle">Health Economics Study Tool</h1>
+            <h1 id="siteTitle">RAND Experiment Study Tool</h1>
         </header>
 
-        <div id="errorMessage">Failed to load flashcards. Please check console errors.</div>
+        <div id="errorMessage">Failed to load flashcards.</div>
 
         <div class="flashcard-wrapper" id="cardWrapper" onclick="flipCard()">
             <div class="flashcard" id="flashcard">
                 <div class="card-face card-front">
                     <span class="card-label">Question</span>
-                    <p class="card-text" id="questionText">Loading cards...</p>
+                    <p class="card-text" id="questionText">Loading cards from data.csv...</p>
                     <span class="hint-text">Click to reveal answer</span>
                 </div>
                 <div class="card-face card-back">
@@ -217,8 +217,7 @@
     </div>
 
     <script>
-        // Points directly to the file name. 
-        // As long as 'flshcard.csv' and 'index.html' are in the exact same folder on GitHub, this works.
+        // Set file path to read your new file format directly
         const CSV_URL = 'data.csv';
 
         let flashcards = [];
@@ -233,37 +232,36 @@
         const progressBarEl = document.getElementById('progressBar');
         const errorEl = document.getElementById('errorMessage');
 
-        // Robust CSV line parser that respects commas wrapped inside quotes
-        function parseCSVLine(text) {
-            let p = false, row = [''], i = 0;
-            for (let ch of text) {
-                if (ch === '"') {
-                    p = !p; 
-                } else if (ch === ',' && !p) {
-                    row[++i] = '';
-                } else {
-                    row[i] += ch;
-                }
-            }
-            return row.map(cell => cell.trim());
-        }
-
-        function parseCSV(text) {
+        // Custom parser to split cleanly around standard comma wrapping and triple quotes (""")
+        function parseTripleQuoteCSV(text) {
             const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
             const data = [];
-            
-            // Skip header index 0 ("Question,Answer")
+
+            // Skip header ("Question,Answer")
             for (let i = 1; i < lines.length; i++) {
-                const parsedRow = parseCSVLine(lines[i]);
-                if (parsedRow.length >= 2) {
-                    let question = parsedRow[0];
-                    let answer = parsedRow[1];
-                    
-                    // Cleanup internal escaped double quotes
-                    question = question.replace(/""/g, '"');
-                    answer = answer.replace(/""/g, '"');
-                    
-                    data.push({ question, answer });
+                let row = lines[i];
+                
+                // Find the main dividing point between Question block and Answer block
+                // Expected format: """Question Text""","""Answer Text"""
+                const targetDivider = '""","""';
+                const dividerIdx = row.indexOf(targetDivider);
+
+                if (dividerIdx !== -1) {
+                    let question = row.substring(0, dividerIdx).replace(/^"""/, '').trim();
+                    let answer = row.substring(dividerIdx + targetDivider.length).replace(/"""$/, '').trim();
+
+                    if (question && answer) {
+                        data.push({ question, answer });
+                    }
+                } else {
+                    // Fallback simpler line parsing if line lacks triple quotes
+                    const simpleDivider = '","';
+                    const sIdx = row.indexOf(simpleDivider);
+                    if (sIdx !== -1) {
+                        let question = row.substring(0, sIdx).replace(/^"/, '').trim();
+                        let answer = row.substring(sIdx + simpleDivider.length).replace(/"$/, '').trim();
+                        data.push({ question, answer });
+                    }
                 }
             }
             return data;
@@ -272,22 +270,22 @@
         async function loadFlashcards() {
             try {
                 const response = await fetch(CSV_URL);
-                if (!response.ok) throw new Error("Could not find or load the CSV file.");
+                if (!response.ok) throw new Error(`Could not read '${CSV_URL}'.`);
                 const text = await response.text();
                 
-                flashcards = parseCSV(text);
+                flashcards = parseTripleQuoteCSV(text);
                 
                 if (flashcards.length > 0) {
                     nextBtn.disabled = false;
                     renderContent();
                 } else {
-                    throw new Error("No data could be parsed from the file.");
+                    throw new Error("Data parsing returned empty. Check file integrity.");
                 }
             } catch (err) {
                 console.error(err);
                 errorEl.textContent = "Error: " + err.message;
                 errorEl.style.display = 'block';
-                questionTextEl.textContent = "Make sure flshcard.csv is uploaded in the exact same folder as index.html.";
+                questionTextEl.textContent = `Ensure both 'index.html' and '${CSV_URL}' are committed in the same folder repository.`;
             }
         }
 
@@ -323,16 +321,4 @@
         }
 
         function prevCard() {
-            if (currentIndex > 0) { currentIndex--; updateCard(); }
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') { e.preventDefault(); flipCard(); }
-            else if (e.code === 'ArrowRight') nextCard();
-            else if (e.code === 'ArrowLeft') prevCard();
-        });
-
-        loadFlashcards();
-    </script>
-</body>
-</html>
+            if (currentIndex > 0) { currentIndex--; update
