@@ -187,13 +187,13 @@
             <h1 id="siteTitle">Health Economics Study Tool</h1>
         </header>
 
-        <div id="errorMessage">Failed to load flashcards. Please verify your CSV URL.</div>
+        <div id="errorMessage">Failed to load flashcards. Please check console errors.</div>
 
         <div class="flashcard-wrapper" id="cardWrapper" onclick="flipCard()">
             <div class="flashcard" id="flashcard">
                 <div class="card-face card-front">
                     <span class="card-label">Question</span>
-                    <p class="card-text" id="questionText">Loading cards from GitHub...</p>
+                    <p class="card-text" id="questionText">Loading cards...</p>
                     <span class="hint-text">Click to reveal answer</span>
                 </div>
                 <div class="card-face card-back">
@@ -217,8 +217,9 @@
     </div>
 
     <script>
-        // 1. PLACE YOUR RAW GITHUB CSV URL HERE:
-        const CSV_URL = 'https://raw.githubusercontent.com/norazmaniza/Flashcard_Production/refs/heads/main/data.csv';
+        // Points directly to the file name. 
+        // As long as 'flshcard.csv' and 'index.html' are in the exact same folder on GitHub, this works.
+        const CSV_URL = 'data.csv';
 
         let flashcards = [];
         let currentIndex = 0;
@@ -251,14 +252,14 @@
             const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
             const data = [];
             
-            // Skip header index 0 ("Question,Answer"), evaluate actual items
+            // Skip header index 0 ("Question,Answer")
             for (let i = 1; i < lines.length; i++) {
                 const parsedRow = parseCSVLine(lines[i]);
                 if (parsedRow.length >= 2) {
                     let question = parsedRow[0];
                     let answer = parsedRow[1];
                     
-                    // Cleanup any unhandled internal escaped double quotes ""
+                    // Cleanup internal escaped double quotes
                     question = question.replace(/""/g, '"');
                     answer = answer.replace(/""/g, '"');
                     
@@ -271,7 +272,7 @@
         async function loadFlashcards() {
             try {
                 const response = await fetch(CSV_URL);
-                if (!response.ok) throw new Error("Network status error");
+                if (!response.ok) throw new Error("Could not find or load the CSV file.");
                 const text = await response.text();
                 
                 flashcards = parseCSV(text);
@@ -280,12 +281,13 @@
                     nextBtn.disabled = false;
                     renderContent();
                 } else {
-                    throw new Error("No parsed data found");
+                    throw new Error("No data could be parsed from the file.");
                 }
             } catch (err) {
                 console.error(err);
+                errorEl.textContent = "Error: " + err.message;
                 errorEl.style.display = 'block';
-                questionTextEl.textContent = "Error loading data.";
+                questionTextEl.textContent = "Make sure flshcard.csv is uploaded in the exact same folder as index.html.";
             }
         }
 
